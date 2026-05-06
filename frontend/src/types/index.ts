@@ -1,5 +1,3 @@
-/** Shared TypeScript types mirroring backend Pydantic schemas. */
-
 export interface ImageItem {
   id: number
   file_path: string
@@ -13,6 +11,7 @@ export interface ImageItem {
   indexed_at: string | null
   modified_at: string | null
   status: string
+  embedding_status: string
 }
 
 export interface ImageList {
@@ -69,4 +68,17 @@ export interface Stats {
   total_folders: number
   queued_jobs: number
   running_jobs: number
+}
+
+export interface SearchHit {
+  image: ImageItem
+  score: number
+  vector_distance: number
+  source: 'vector' | 'keyword' | 'both'
+}
+
+export interface SearchResult {
+  results: SearchHit[]
+  total: number
+  query: string
 }

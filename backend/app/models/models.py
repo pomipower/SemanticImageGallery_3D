@@ -46,6 +46,7 @@ class Image(Base):
     indexed_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
     modified_at: Mapped[datetime | None] = mapped_column(DateTime)
     status: Mapped[str] = mapped_column(String(20), default="pending")
+    embedding_status: Mapped[str] = mapped_column(String(20), default="pending")
     error_msg: Mapped[str | None] = mapped_column(Text)
 
     # Relationships

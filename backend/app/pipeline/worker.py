@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -93,6 +93,8 @@ async def _process_job(db: AsyncSession, job: Job) -> None:
     try:
         if job.type == "thumbnail":
             await _handle_thumbnail(db, job)
+        elif job.type == "embed":
+            await _handle_embed(db, job)
         else:
             logger.warning("Unknown job type: %s (job %d) — skipping", job.type, job.id)
             job.status = "queued"  # put back for future milestone workers
@@ -148,6 +150,20 @@ async def _handle_thumbnail(db: AsyncSession, job: Job) -> None:
 
     await db.commit()
 
+    # Populate FTS5 with filename for keyword search
+    try:
+        filename = image_path.stem
+        await db.execute(
+            text(
+                "INSERT OR REPLACE INTO images_fts(rowid, filename, caption, tags, ocr_text) "
+                "VALUES (:id, :fn, '', '', '')"
+            ),
+            {"id": image.id, "fn": filename},
+        )
+        await db.commit()
+    except Exception:
+        pass  # FTS5 table may not exist yet during migration
+
 
 def _thumbnail_work(image_path: Path, file_hash: str) -> tuple[Path, tuple[int, int], str | None, str]:
     """Synchronous thumbnail + metadata extraction (runs in thread pool)."""
@@ -156,3 +172,36 @@ def _thumbnail_work(image_path: Path, file_hash: str) -> tuple[Path, tuple[int, 
     exif = extract_exif(image_path)
     fmt = get_image_format(image_path)
     return thumb, dims, exif, fmt
+
+
+async def _handle_embed(db: AsyncSession, job: Job) -> None:
+    """Generate CLIP embedding and store in LanceDB."""
+    result = await db.execute(select(Image).where(Image.id == job.image_id))
+    image = result.scalar_one_or_none()
+    if image is None:
+        raise ValueError(f"Image {job.image_id} not found")
+
+    image_path = Path(image.file_path)
+    if not image_path.exists():
+        raise FileNotFoundError(f"Image file missing: {image_path}")
+
+    loop = asyncio.get_running_loop()
+
+    # Run CLIP encoding in thread pool (CPU-bound)
+    vector = await loop.run_in_executor(_executor, _embed_work, image_path)
+
+    # Store in LanceDB
+    from app.core.vector_store import get_vector_store
+    store = get_vector_store()
+    store.upsert_image_embedding(image.id, vector, image.file_path)
+
+    # Update embedding status
+    image.embedding_status = "done"
+    await db.commit()
+
+
+def _embed_work(image_path: Path):
+    """Synchronous CLIP encoding (runs in thread pool)."""
+    from app.ml.clip import get_clip_encoder
+    encoder = get_clip_encoder()
+    return encoder.encode_image(image_path)

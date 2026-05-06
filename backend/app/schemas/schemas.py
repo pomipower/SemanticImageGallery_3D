@@ -41,6 +41,7 @@ class ImageRead(BaseModel):
     indexed_at: datetime | None = None
     modified_at: datetime | None = None
     status: str
+    embedding_status: str = "pending"
 
     model_config = {"from_attributes": True}
 

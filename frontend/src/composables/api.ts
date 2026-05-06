@@ -14,8 +14,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json()
 }
 
-// --- Images ---
-import type { ImageList, ImageItem, FolderItem, FolderCreate, ScanResponse, JobList, Stats } from '../types'
+import type { ImageList, ImageItem, FolderItem, FolderCreate, ScanResponse, JobList, Stats, SearchResult } from '../types'
 
 export const api = {
   images: {
@@ -58,5 +57,13 @@ export const api = {
 
     stats: () =>
       request<Stats>('/jobs/stats'),
+
+    embedAll: () =>
+      request<{ jobs_created: number }>('/jobs/embed-all', { method: 'POST' }),
+  },
+
+  search: {
+    query: (q: string, limit = 20, offset = 0) =>
+      request<SearchResult>(`/search?q=${encodeURIComponent(q)}&limit=${limit}&offset=${offset}`),
   },
 }

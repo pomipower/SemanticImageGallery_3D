@@ -99,3 +99,21 @@ async def job_stream():
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.post("/embed-all")
+async def embed_all_images(db: AsyncSession = Depends(get_db)):
+    """Create embed jobs for all images missing embeddings."""
+    result = await db.execute(
+        select(Image).where(
+            Image.status != "deleted",
+            Image.embedding_status == "pending",
+        )
+    )
+    images = result.scalars().all()
+    count = 0
+    for img in images:
+        db.add(Job(type="embed", image_id=img.id, priority=2))
+        count += 1
+    await db.commit()
+    return {"jobs_created": count}
