@@ -82,3 +82,10 @@ export interface SearchResult {
   total: number
   query: string
 }
+
+export interface ImageMetadata {
+  image_id: number
+  captions: { caption: string; model: string | null }[]
+  tags: { tag: string; source: string; confidence: number | null }[]
+  ocr: { text: string; engine: string | null; confidence: number | null }[]
+}

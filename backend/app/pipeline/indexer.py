@@ -72,8 +72,10 @@ async def run_scan(
 
                 db.add(Job(type="thumbnail", image_id=new_image.id, priority=1))
                 db.add(Job(type="embed", image_id=new_image.id, priority=2))
+                db.add(Job(type="ocr", image_id=new_image.id, priority=3))
+                db.add(Job(type="caption", image_id=new_image.id, priority=4))
                 stats["new"] += 1
-                stats["jobs"] += 2
+                stats["jobs"] += 4
 
             else:
                 # Existing file — check mtime + size for fast change detection
@@ -91,9 +93,11 @@ async def run_scan(
 
                         db.add(Job(type="thumbnail", image_id=img.id, priority=1))
                         db.add(Job(type="embed", image_id=img.id, priority=2))
+                        db.add(Job(type="ocr", image_id=img.id, priority=3))
+                        db.add(Job(type="caption", image_id=img.id, priority=4))
                         img.embedding_status = "pending"  # reset
                         stats["modified"] += 1
-                        stats["jobs"] += 2
+                        stats["jobs"] += 4
 
         # 4. Find deleted files (in DB but not on disk)
         for path_str, img in existing_images.items():

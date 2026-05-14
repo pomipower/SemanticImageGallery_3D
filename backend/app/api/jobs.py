@@ -117,3 +117,52 @@ async def embed_all_images(db: AsyncSession = Depends(get_db)):
         count += 1
     await db.commit()
     return {"jobs_created": count}
+
+
+@router.post("/process-all")
+async def process_all_metadata(db: AsyncSession = Depends(get_db)):
+    """Create OCR + caption jobs for all indexed images missing metadata."""
+    from app.models.models import OcrResult, Caption
+
+    # Find images that are indexed but have no OCR or caption
+    result = await db.execute(
+        select(Image).where(Image.status == "indexed")
+    )
+    images = result.scalars().all()
+
+    ocr_count = 0
+    caption_count = 0
+    for img in images:
+        # Check if OCR already done
+        ocr_exists = await db.execute(
+            select(OcrResult.id).where(OcrResult.image_id == img.id).limit(1)
+        )
+        if ocr_exists.scalar_one_or_none() is None:
+            # Check no queued/running OCR job exists
+            existing_job = await db.execute(
+                select(Job).where(
+                    Job.image_id == img.id, Job.type == "ocr",
+                    Job.status.in_(["queued", "running"]),
+                )
+            )
+            if existing_job.scalar_one_or_none() is None:
+                db.add(Job(type="ocr", image_id=img.id, priority=3))
+                ocr_count += 1
+
+        # Check if caption already done
+        cap_exists = await db.execute(
+            select(Caption.id).where(Caption.image_id == img.id).limit(1)
+        )
+        if cap_exists.scalar_one_or_none() is None:
+            existing_job = await db.execute(
+                select(Job).where(
+                    Job.image_id == img.id, Job.type == "caption",
+                    Job.status.in_(["queued", "running"]),
+                )
+            )
+            if existing_job.scalar_one_or_none() is None:
+                db.add(Job(type="caption", image_id=img.id, priority=4))
+                caption_count += 1
+
+    await db.commit()
+    return {"ocr_jobs": ocr_count, "caption_jobs": caption_count}

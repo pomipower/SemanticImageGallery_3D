@@ -14,7 +14,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json()
 }
 
-import type { ImageList, ImageItem, FolderItem, FolderCreate, ScanResponse, JobList, Stats, SearchResult } from '../types'
+import type { ImageList, ImageItem, FolderItem, FolderCreate, ScanResponse, JobList, Stats, SearchResult, ImageMetadata } from '../types'
 
 export const api = {
   images: {
@@ -29,6 +29,9 @@ export const api = {
 
     fullUrl: (id: number) =>
       `${BASE_URL}/images/${id}/full`,
+
+    metadata: (id: number) =>
+      request<ImageMetadata>(`/images/${id}/metadata`),
   },
 
   folders: {
@@ -60,6 +63,9 @@ export const api = {
 
     embedAll: () =>
       request<{ jobs_created: number }>('/jobs/embed-all', { method: 'POST' }),
+
+    processAll: () =>
+      request<{ ocr_jobs: number; caption_jobs: number }>('/jobs/process-all', { method: 'POST' }),
   },
 
   search: {

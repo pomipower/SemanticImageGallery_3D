@@ -17,6 +17,7 @@ dependencies = [
     "open-clip-torch>=2.29.0",
     "lancedb>=0.14.0",
     "pyarrow>=17.0.0",
+    "easyocr>=1.7.0",
 ]
 
 [project.optional-dependencies]

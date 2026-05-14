@@ -92,3 +92,39 @@ async def get_full_image(image_id: int, db: AsyncSession = Depends(get_db)):
 
     media_type = "image/jpeg" if image.format == "jpg" else f"image/{image.format or 'jpeg'}"
     return FileResponse(path, media_type=media_type)
+
+
+@router.get("/{image_id}/metadata")
+async def get_image_metadata(image_id: int, db: AsyncSession = Depends(get_db)):
+    """Get all metadata for an image: captions, tags, OCR."""
+    from app.models.models import Caption, Tag, OcrResult
+
+    result = await db.execute(select(Image).where(Image.id == image_id))
+    image = result.scalar_one_or_none()
+    if not image:
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    # Captions
+    cap_result = await db.execute(
+        select(Caption).where(Caption.image_id == image_id).order_by(Caption.created_at.desc())
+    )
+    captions = [{"caption": c.caption, "model": c.model} for c in cap_result.scalars().all()]
+
+    # Tags
+    tag_result = await db.execute(
+        select(Tag).where(Tag.image_id == image_id)
+    )
+    tags = [{"tag": t.tag, "source": t.source, "confidence": t.confidence} for t in tag_result.scalars().all()]
+
+    # OCR
+    ocr_result = await db.execute(
+        select(OcrResult).where(OcrResult.image_id == image_id).order_by(OcrResult.created_at.desc())
+    )
+    ocr_items = [{"text": o.text, "engine": o.engine, "confidence": o.confidence} for o in ocr_result.scalars().all()]
+
+    return {
+        "image_id": image_id,
+        "captions": captions,
+        "tags": tags,
+        "ocr": ocr_items,
+    }
